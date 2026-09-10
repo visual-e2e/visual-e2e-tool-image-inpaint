@@ -1,6 +1,6 @@
 {
   "id": "image-inpaint",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "AI 去水印",
   "description": "AI 去水印工具：支持批量、ZIP、选区复用、RPC 文件夹选择与缓存。",
   "icon": "tool",
