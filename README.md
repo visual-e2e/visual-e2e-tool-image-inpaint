@@ -2,17 +2,15 @@
 
 Visual E2E 工具：`image-inpaint`。
 
-支持单图 / 批量 / ZIP 压缩包去水印，手动画笔与矩形选区可复用到全部图片，并通过 Host RPC 持久化缓存。
-
-界面布局对齐 PhotoGrid 编辑器（Ant Design）：左侧工具栏、中间画布、右侧可滚动图库。
+支持单图 / 批量 / ZIP 去水印，选区可复用，Host RPC 缓存。
 
 ## 功能
 
-- 上传图片（点击）、文件夹 / ZIP（顶栏「上传」或拖放）
-- 手动画笔 / 自动模式（自动当前为 mock 弱处理，可接真实模型）
-- 选区复用：基准图选区按归一化坐标映射到全部图片
+- 上传图片、文件夹、ZIP
+- 手动画笔 / 自动模式（未配置 AI 模型时为本地占位处理）
+- 选区复用到全部图片
 - 前后对比与原分辨率下载
-- 会话缓存：写入 `fs.getDataDir().tools/image-inpaint`；缓存被清理时会提示
+- 会话缓存：自动保存；进入工具时自动加载
 
 ## 开发
 
@@ -25,26 +23,25 @@ export E2E_RUNTIME=client
 npm run dev
 ```
 
-可选真实模型（LaMa，见 `inpaint-model/`）：
+## AI 模型
+
+本工具使用 LaMa 图像修复模型做去水印。可自行部署同协议服务，或用 `@visual-e2e/ai` 启动 `image-inpaint`。
 
 ```bash
-# 终端 1：启动本地 LaMa 服务
-cd inpaint-model && python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt && python app.py
-
-# 终端 2：接入本工具
-export INPAINT_API_URL="http://127.0.0.1:9000/inpaint"
-# export INPAINT_API_KEY="..."   # 仅当模型服务启用了鉴权
-
-npm run dev
+npm i -g @visual-e2e/ai
+vetai select
+vetai test image-inpaint
 ```
 
-或指向任意兼容端点：`INPAINT_API_URL` + 可选 `INPAINT_API_KEY`。  
-未配置时使用本地 `MockInpaintProvider`。
+工具内「AI 模型」填写：`http://127.0.0.1:9000/inpaint`  
+也可用环境变量 `INPAINT_API_URL` / `INPAINT_API_KEY`（写入 `data/settings.json`）。
+
+先启动 Docker 与模型服务再测连通。
+
 ## RPC
 
-- `fs.getDataDir`：解析缓存根目录（`tools/image-inpaint`）
-- `cache.clear` 通知：提示缓存可能已失效
+- `fs.getDataDir`：缓存根目录
+- `cache.clear`：缓存清理通知
 
 ## 打包
 

@@ -1,7 +1,7 @@
 import { ProcessMode } from "../../shared/enums/process-mode.enum";
 import type { BrushTool } from "../../shared/enums/brush-tool.enum";
 import { SelectionTool } from "../../shared/enums/selection-tool.enum";
-import { Typography } from "antd";
+import { Button, Typography } from "antd";
 import { ModeTabs } from "./ModeTabs";
 import { SelectionToolGrid } from "./SelectionToolGrid";
 import { HowToCard } from "./HowToCard";
@@ -22,6 +22,8 @@ interface LeftPanelProps {
   onRemove: () => void;
   onRemoveAll: () => void;
   batchCount: number;
+  onApplyMaskToAll?: () => void;
+  canApplyMaskToAll?: boolean;
 }
 
 export function LeftPanel(props: LeftPanelProps) {
@@ -41,6 +43,17 @@ export function LeftPanel(props: LeftPanelProps) {
         onBrushSizeChange={props.onBrushSizeChange}
         onClearMask={props.onClearMask}
       />
+
+      {manual && props.onApplyMaskToAll && (
+        <Button
+          block
+          disabled={!props.canApplyMaskToAll || props.running}
+          onClick={() => props.onApplyMaskToAll?.()}
+          style={{ marginTop: 8 }}
+        >
+          选区复用到全部
+        </Button>
+      )}
 
       {!manual && (
         <Typography.Paragraph type="secondary" style={{ marginBottom: 0 }}>

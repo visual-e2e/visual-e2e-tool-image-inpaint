@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   loadCache,
   readCacheFile,
@@ -23,6 +23,8 @@ import {
   fileToDataUrl,
 } from "../upload/image-validators";
 
+const AUTO_SAVE_MS = 900;
+
 async function urlToBase64(url: string): Promise<string> {
   const res = await fetch(url);
   const blob = await res.blob();
@@ -38,6 +40,8 @@ export function useSessionCache(
   const [cacheStatus, setCacheStatus] = useState<CacheStatus>(CacheStatus.Unknown);
   const [cacheMessage, setCacheMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const bootstrappedRef = useRef(false);
+  const restoringRef = useRef(false);
 
   useEffect(() => {
     void (async () => {
@@ -49,19 +53,22 @@ export function useSessionCache(
   useEffect(() => {
     return subscribeCacheClear(() => {
       setCacheStatus(CacheStatus.Cleared);
-      setCacheMessage("检测到 Host 缓存清理通知，本地缓存路径可能已失效，请重新保存或重新上传。");
+      setCacheMessage("检测到 Host 缓存清理通知，本地缓存可能已失效，请重新上传。");
     });
   }, []);
 
-  const persist = useCallback(async () => {
+  const persist = useCallback(async (options?: { silent?: boolean }) => {
     if (!paths) return;
+    if (session.items.length === 0) return;
+    const silent = options?.silent ?? true;
     setSaving(true);
-    setCacheMessage(null);
+    if (!silent) setCacheMessage(null);
     try {
       const files: Array<{ relativePath: string; base64: string }> = [];
       const persistedItems = [];
 
       for (const item of session.items) {
+        if (!item.objectUrl) continue;
         const sourceRel = `sources/${item.id}-${item.fileName}`;
         const sourceBase64 = await urlToBase64(item.objectUrl);
         files.push({ relativePath: sourceRel, base64: sourceBase64 });
@@ -99,6 +106,8 @@ export function useSessionCache(
         });
       }
 
+      if (persistedItems.length === 0) return;
+
       const payload: PersistedSession = {
         version: CACHE_VERSION,
         updatedAt: Date.now(),
@@ -125,7 +134,6 @@ export function useSessionCache(
         setCacheMessage(`部分缓存写入失败：${result.missingPaths.join(", ")}`);
       } else {
         setCacheStatus(CacheStatus.Ready);
-        setCacheMessage(`已保存到缓存目录：${paths.cacheRoot}`);
       }
     } catch (err) {
       setCacheStatus(CacheStatus.Error);
@@ -137,22 +145,19 @@ export function useSessionCache(
 
   const restore = useCallback(async () => {
     if (!paths) return;
+    restoringRef.current = true;
     setCacheMessage(null);
     try {
       const loaded = await loadCache(paths.cacheRoot);
       if (loaded.status === CacheStatus.Missing || !loaded.session) {
         setCacheStatus(CacheStatus.Missing);
-        setCacheMessage(
-          loaded.message
-            ?? "未找到缓存会话。若缓存目录曾被清理，请重新上传图片。",
-        );
         return;
       }
 
       if (loaded.missingPaths.length) {
         setCacheStatus(CacheStatus.Missing);
         setCacheMessage(
-          `缓存文件缺失（可能已被清理）：${loaded.missingPaths.slice(0, 5).join(", ")}${
+          `缓存文件缺失：${loaded.missingPaths.slice(0, 5).join(", ")}${
             loaded.missingPaths.length > 5 ? "…" : ""
           }。请重新上传缺失图片。`,
         );
@@ -248,14 +253,28 @@ export function useSessionCache(
         reusableMask: loaded.session.session.reusableMask,
       };
       hydrateSession(next);
-      if (!loaded.missingPaths.length) {
-        setCacheMessage(`已从缓存恢复：${paths.cacheRoot}`);
-      }
     } catch (err) {
       setCacheStatus(CacheStatus.Error);
       setCacheMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      restoringRef.current = false;
+      bootstrappedRef.current = true;
     }
   }, [hydrateSession, paths]);
+
+  useEffect(() => {
+    if (!paths || bootstrappedRef.current) return;
+    void restore();
+  }, [paths, restore]);
+
+  useEffect(() => {
+    if (!bootstrappedRef.current || restoringRef.current || !paths) return;
+    if (session.items.length === 0) return;
+    const timer = window.setTimeout(() => {
+      void persist({ silent: true });
+    }, AUTO_SAVE_MS);
+    return () => window.clearTimeout(timer);
+  }, [session, paths, persist]);
 
   return {
     paths,

@@ -7,6 +7,11 @@ import type { InpaintProvider } from "./providers/inpaint-provider.js";
 import { HttpAiInpaintProvider } from "./providers/http-ai.provider.js";
 import { MockInpaintProvider } from "./providers/mock.provider.js";
 import { JobStatus } from "../../shared/enums/job-status.enum.js";
+import {
+  healthUrlFromInpaintUrl,
+  resolveEffectiveSettings,
+  type InpaintSettings,
+} from "./inpaint-settings.service.js";
 
 export interface InpaintRequestDto {
   mode: ProcessMode;
@@ -15,16 +20,65 @@ export interface InpaintRequestDto {
   exportQuality?: ExportQuality;
 }
 
-export function createInpaintProvider(): InpaintProvider {
-  const endpoint = process.env.INPAINT_API_URL;
-  if (endpoint) {
-    return new HttpAiInpaintProvider(endpoint, process.env.INPAINT_API_KEY);
+export function createInpaintProviderFromSettings(
+  settings: InpaintSettings | null,
+): InpaintProvider {
+  if (settings?.apiUrl) {
+    return new HttpAiInpaintProvider(settings.apiUrl, settings.apiKey);
   }
   return new MockInpaintProvider();
 }
 
+export async function createInpaintProvider(): Promise<InpaintProvider> {
+  const settings = await resolveEffectiveSettings();
+  return createInpaintProviderFromSettings(settings);
+}
+
 export class InpaintService {
-  constructor(private readonly provider: InpaintProvider) {}
+  constructor(private provider: InpaintProvider) {}
+
+  getProviderName(): string {
+    return this.provider.name;
+  }
+
+  setProvider(provider: InpaintProvider): void {
+    this.provider = provider;
+  }
+
+  async applySettings(settings: InpaintSettings | null): Promise<void> {
+    this.provider = createInpaintProviderFromSettings(settings);
+  }
+
+  async testConnection(settings: InpaintSettings): Promise<{
+    ok: boolean;
+    message: string;
+  }> {
+    const healthUrl = healthUrlFromInpaintUrl(settings.apiUrl);
+    const headers: Record<string, string> = {};
+    if (settings.apiKey) {
+      headers.Authorization = `Bearer ${settings.apiKey}`;
+    }
+
+    try {
+      const response = await fetch(healthUrl, {
+        method: "GET",
+        headers,
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!response.ok) {
+        return {
+          ok: false,
+          message: `健康检查失败（HTTP ${response.status}）：${healthUrl}`,
+        };
+      }
+      return { ok: true, message: `已连接：${healthUrl}` };
+    } catch (err) {
+      return {
+        ok: false,
+        message: `无法连接 ${healthUrl}：${err instanceof Error ? err.message : String(err)}`,
+      };
+    }
+  }
 
   async run(dto: InpaintRequestDto) {
     if (!dto.imageBase64) {

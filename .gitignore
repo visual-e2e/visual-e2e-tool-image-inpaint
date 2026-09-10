@@ -3,11 +3,10 @@ dist/
 server/dist/
 web/dist/
 data/cache/
+data/settings.json
 server/data/cache/
 *.vettool.zip
 .DS_Store
 *.tsbuildinfo
-inpaint-model/.venv/
-inpaint-model/venv/
 .env
 .env.*

@@ -3,7 +3,7 @@ import {
   FileImageOutlined,
   FileZipOutlined,
   FolderOpenOutlined,
-  MoreOutlined,
+  SettingOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
 import { Button, Dropdown, Layout, Space, Typography } from "antd";
@@ -18,11 +18,7 @@ interface EditorHeaderProps {
     options?: { fromDirectory?: boolean; zipOnly?: boolean },
   ) => void;
   uploadDisabled?: boolean;
-  onRestoreCache?: () => void;
-  onSaveCache?: () => void;
-  onApplyMaskToAll?: () => void;
-  canApplyMaskToAll?: boolean;
-  savingCache?: boolean;
+  onOpenInpaintConfig?: () => void;
 }
 
 export function EditorHeader(props: EditorHeaderProps) {
@@ -31,42 +27,12 @@ export function EditorHeader(props: EditorHeaderProps) {
     canDownloadAll,
     onUpload,
     uploadDisabled,
-    onRestoreCache,
-    onSaveCache,
-    onApplyMaskToAll,
-    canApplyMaskToAll,
-    savingCache,
+    onOpenInpaintConfig,
   } = props;
 
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const zipInputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
-
-  const moreItems: MenuProps["items"] = [
-    onApplyMaskToAll
-      ? {
-          key: "apply-mask",
-          label: "选区复用到全部",
-          disabled: !canApplyMaskToAll,
-          onClick: () => onApplyMaskToAll(),
-        }
-      : null,
-    onSaveCache
-      ? {
-          key: "save-cache",
-          label: savingCache ? "缓存中…" : "保存缓存",
-          disabled: savingCache,
-          onClick: () => onSaveCache(),
-        }
-      : null,
-    onRestoreCache
-      ? {
-          key: "restore-cache",
-          label: "恢复缓存",
-          onClick: () => onRestoreCache(),
-        }
-      : null,
-  ].filter(Boolean);
 
   const uploadItems: MenuProps["items"] = [
     {
@@ -95,10 +61,10 @@ export function EditorHeader(props: EditorHeaderProps) {
         AI 去水印
       </Typography.Title>
       <Space>
-        {moreItems.length > 0 && (
-          <Dropdown menu={{ items: moreItems }} placement="bottomRight">
-            <Button icon={<MoreOutlined />}>更多</Button>
-          </Dropdown>
+        {onOpenInpaintConfig && (
+          <Button icon={<SettingOutlined />} onClick={() => onOpenInpaintConfig()}>
+            AI 模型
+          </Button>
         )}
         <Dropdown
           menu={{ items: uploadItems }}

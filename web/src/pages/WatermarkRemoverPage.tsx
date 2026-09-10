@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Alert } from "antd";
+import { Alert, Button } from "antd";
 import { isEmbedded } from "@visual-e2e/rpc-sdk";
 import { BatchItemMaskState } from "../shared/enums/batch-item-mask-state.enum";
 import { BatchItemStatus } from "../shared/enums/batch-item-status.enum";
@@ -17,6 +17,7 @@ import { useBrushCanvas } from "../features/editor/useBrushCanvas";
 import { useRectSelect } from "../features/editor/useRectSelect";
 import { GalleryRail } from "../features/gallery/GalleryRail";
 import { EditorHeader } from "../features/header/EditorHeader";
+import { InpaintConfigModal } from "../features/inpaint-config/InpaintConfigModal";
 import { LeftPanel } from "../features/left-panel/LeftPanel";
 import { CanvasFloatingBar } from "../features/canvas/CanvasFloatingBar";
 import { CanvasStage } from "../features/canvas/CanvasStage";
@@ -28,6 +29,7 @@ import { extractImagesFromZip } from "../features/upload/archive-filters";
 import { filterFolderImages, partitionUploads } from "../features/upload/folder-walk";
 import { assertImageFile } from "../features/upload/image-validators";
 import { hasMaskContent, canvasToMaskDataUrl, renderReusableMask } from "../features/mask-reuse/mask-mapper";
+import { getInpaintConfig, type InpaintConfigResponse } from "../shared/api/inpaint-config.api";
 import { EditorShell } from "../layouts/EditorShell";
 
 export function WatermarkRemoverPage() {
@@ -35,12 +37,28 @@ export function WatermarkRemoverPage() {
   const [processMode, setProcessMode] = useState(ProcessMode.ManualBrush);
   const [selectionTool, setSelectionTool] = useState(SelectionTool.Rectangle);
   const [compareMode, setCompareMode] = useState(false);
+  const [inpaintConfig, setInpaintConfig] = useState<InpaintConfigResponse | null>(null);
+  const [configOpen, setConfigOpen] = useState(false);
 
   const batch = useBatchSession();
   const cache = useSessionCache(batch.session, batch.hydrateSession);
   const viewport = useCanvasViewport();
   const history = useEditHistory();
   const skipHistory = useRef(false);
+
+  useEffect(() => {
+    void getInpaintConfig()
+      .then(setInpaintConfig)
+      .catch(() => {
+        setInpaintConfig({
+          configured: false,
+          apiUrl: null,
+          hasApiKey: false,
+          provider: "mock",
+          source: "none",
+        });
+      });
+  }, []);
 
   const active = batch.activeItem;
   const manualEnabled = processMode === ProcessMode.ManualBrush && !!active;
@@ -250,8 +268,10 @@ export function WatermarkRemoverPage() {
   }
 
   const resultCount = batch.session.items.filter((i) => i.resultObjectUrl).length;
+  const inpaintConfigured = Boolean(inpaintConfig?.configured);
 
   return (
+    <>
     <EditorShell
       header={
         <EditorHeader
@@ -259,15 +279,31 @@ export function WatermarkRemoverPage() {
           onDownloadAll={() => void downloadAllResults(batch.session.items)}
           onUpload={(files, options) => void ingestFiles(files, options)}
           uploadDisabled={batch.running}
-          onRestoreCache={() => void cache.restore()}
-          onSaveCache={() => void cache.persist()}
-          savingCache={cache.saving}
-          onApplyMaskToAll={batch.applyMaskToAll}
-          canApplyMaskToAll={batch.session.items.length > 1 && hasMaskContent(batch.session.reusableMask)}
+          onOpenInpaintConfig={() => setConfigOpen(true)}
         />
       }
       banners={
         <div className="editor-banners">
+          {inpaintConfig && !inpaintConfigured && (
+            <Alert
+              type="warning"
+              showIcon
+              banner
+              message={
+                <span>
+                  未配置 AI 模型。请用 <code>@visual-e2e/ai</code> 启动后，点击
+                  <Button
+                    type="link"
+                    size="small"
+                    style={{ paddingInline: 4, height: "auto" }}
+                    onClick={() => setConfigOpen(true)}
+                  >
+                    去配置
+                  </Button>
+                </span>
+              }
+            />
+          )}
           {!embedded && (
             <Alert
               type="warning"
@@ -344,6 +380,10 @@ export function WatermarkRemoverPage() {
           onRemove={() => void batch.runActive(effectiveMode)}
           onRemoveAll={() => void batch.runBatch(effectiveMode)}
           batchCount={batch.session.items.length}
+          onApplyMaskToAll={batch.applyMaskToAll}
+          canApplyMaskToAll={
+            batch.session.items.length > 1 && hasMaskContent(batch.session.reusableMask)
+          }
         />
       }
       center={
@@ -458,5 +498,12 @@ export function WatermarkRemoverPage() {
         />
       }
     />
+    <InpaintConfigModal
+      open={configOpen}
+      config={inpaintConfig}
+      onClose={() => setConfigOpen(false)}
+      onSaved={setInpaintConfig}
+    />
+    </>
   );
 }
