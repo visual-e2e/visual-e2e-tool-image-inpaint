@@ -1,0 +1,9 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+pillow>=10.0.0
+pydantic>=2.0.0
+numpy<2
+opencv-python>=4.8,<4.12
+torch>=2.1.0
+torchvision>=0.16.0
+simple-lama-inpainting==0.1.0

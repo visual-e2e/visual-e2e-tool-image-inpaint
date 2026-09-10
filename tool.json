@@ -1,0 +1,45 @@
+{
+  "id": "image-inpaint",
+  "version": "1.0.0",
+  "name": "AI 去水印",
+  "description": "AI 去水印工具：支持批量、ZIP、选区复用、RPC 文件夹选择与缓存。",
+  "icon": "tool",
+  "category": "test",
+  "author": {
+    "name": "hjm100"
+  },
+  "rpc": {
+    "protocolVersion": 2
+  },
+  "capabilities": [
+    "project.context",
+    "project.list",
+    "project.variables",
+    "config.settings",
+    "config.browserRuntime",
+    "fs.pickFolder",
+    "fs.dataDir",
+    "scenario.navigate",
+    "cache.clear"
+  ],
+  "ports": {
+    "preferredProd": 7204,
+    "prod": 7204,
+    "dev": 3204,
+    "webDev": 5204
+  },
+  "main": "server/dist/index.js",
+  "webRoot": "web/dist",
+  "engines": {
+    "host": ">=1.4.0"
+  },
+  "sandbox": {
+    "allow": [
+      "scripts",
+      "forms",
+      "popups",
+      "same-origin"
+    ],
+    "bridge": []
+  }
+}
